@@ -71,19 +71,3 @@ $env:PYTHONPATH = ".."
 | `T` | Speak the decoded text |
 | `B` | Play the decoded text as Morse beeps on Windows |
 | `Q` | Quit |
-
-## Configuration
-
-Edit [morse_decoder/config.py](morse_decoder/config.py) to adjust:
-
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `camera_index` | `0` | Camera device to open |
-| `CAMERA_WIDTH`, `CAMERA_HEIGHT` | `1000`, `700` | Requested capture resolution |
-| `TARGET_FPS` | `60` | Requested camera frame rate |
-| `CALIBRATION_FRAMES` | `150` | Eye calibration length |
-| `INPUT_SEQUENCE` | Dot: 3 s; dash: 3 s; space: 2 s | Selector phases |
-| `INTERVAL_DURATION` | `1.0` s | Gap between phases |
-| `MIN_BLINK_DURATION`, `MAX_BLINK_DURATION` | `0.01`, `1.50` s | Accepted blink duration |
-
-Camera hardware may provide a different resolution or frame rate than requested. Both detection modes currently initialize the bundled light model, so retain `assets/best.pt` even when using eye input.
