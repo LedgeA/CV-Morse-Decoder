@@ -3,7 +3,7 @@ User interface utilities for displaying information
 """
 import cv2
 import numpy as np
-import time  # Added missing import
+import time
 from config import *
 
 class UIHandler:
@@ -99,7 +99,7 @@ class UIHandler:
         self._draw_controls(text_panel, height)
         
         # Notification
-        if self.should_show_notification(time.time()):  # Now time is defined
+        if self.should_show_notification(time.time()):
             color = (0, 0, 255) if "ERROR" in self.notification_message else (255, 0, 0)
             cv2.putText(text_panel, self.notification_message, (10, height - 150),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)

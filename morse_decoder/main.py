@@ -10,25 +10,23 @@ from ui_utils import UIHandler
 class MorseDecoderApp:
 
     def __init__(self):
-        # Create managers for different functions
         self.audio_manager = AudioManager()        # Handles sounds and speech
         self.vision_processor = VisionProcessor()  # Handles camera and eye detection
         self.ui_handler = UIHandler("LuminEye")  # Handles display
 
-        # Track what Morse code the user has entered so far
-        self.morse_sequence = ""      # Current sequence of dots and dashes (like ".-.")
-        self.decoded_text = ""        # Translated text (like "A")
+        self.morse_sequence = ""
+        self.decoded_text = ""
         self.invalid_sequence_detected = False  # Flag for invalid Morse codes
         
         # Control the sequential input system (DOT -> DASH -> SPACE cycling)
-        self.sequence_index = 0       # Which symbol we're currently on
+        self.sequence_index = 0
         self.sequence_start_time = 0.0  # When the current symbol started
         self.current_symbol_data = INPUT_SEQUENCE[0]  # Current symbol (. or - or space)
-        self.is_interval_phase = False  # Are we in rest period between symbols?
+        self.is_interval_phase = False
         
         # Track calibration progress
-        self.frame_count = 0          # How many frames we've processed
-        self.calibration_done = False  # Has calibration finished?
+        self.frame_count = 0
+        self.calibration_done = False
         
         # Prevent too many rapid key presses
         self.last_key_time = 0
@@ -45,7 +43,6 @@ class MorseDecoderApp:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
         self.cap.set(cv2.CAP_PROP_FPS, TARGET_FPS)
         
-        # Make sure camera opened successfully
         if not self.cap.isOpened():
             raise Exception("Error: Could not open video stream.")
         
@@ -58,7 +55,6 @@ class MorseDecoderApp:
         if current_time - self.last_key_time <= KEY_COOLDOWN:
             return True
         
-        # Check which key was pressed and handle it
         if key == ord('q') or key == ord('Q'):
             return False  # Quit the application
         
@@ -94,7 +90,6 @@ class MorseDecoderApp:
             # Try to translate Morse code to a letter/number
             letter = morse_to_letter(self.morse_sequence)
             if letter:
-                # Success! Add the letter to our decoded text
                 self.decoded_text += letter
                 message = f"SUBMITTED: '{self.morse_sequence}' decoded to '{letter}'"
                 self.ui_handler.show_notification(message, current_time)
@@ -181,7 +176,6 @@ class MorseDecoderApp:
         if not self.is_interval_phase and self.calibration_done:
             symbol = self.current_symbol_data["symbol"]  # Current active symbol
             
-            # Ask vision processor to detect if this is a valid blink
             blink_detected, new_symbol, blink_ended = self.vision_processor.detect_eye_blink(
                 avg_ear_s, symbol, current_time)
 
@@ -211,7 +205,6 @@ class MorseDecoderApp:
         if not self.is_interval_phase:
             symbol = self.current_symbol_data["symbol"]  # Current active symbol
 
-            # Ask vision processor to detect if this is a valid blink
             blink_detected, new_symbol, blink_ended = self.vision_processor.detect_light_blink(
                 light_conf, symbol, current_time)
 
@@ -242,7 +235,6 @@ class MorseDecoderApp:
 
         self.calibration_done = True
 
-        # Set up all our systems
         self.initialize_camera()
         self.audio_manager.start_audio_threads()
 
@@ -257,13 +249,12 @@ class MorseDecoderApp:
 
                 # Mirror the image so it feels more natural
                 frame = cv2.flip(frame, 1)
-                display_frame = frame.copy()  # We'll draw on this copy
+                display_frame = frame.copy()
                 current_time = time.time()  # Get current time for timing
 
                 # Process the frame to detect light and get confidence score
                 result_box = self.vision_processor.process_light_frame(display_frame)
 
-                # Initialize before
                 confidence = 0.0
                 coords = 0.0
 
@@ -307,14 +298,12 @@ class MorseDecoderApp:
             print("\nInterrupted by user")
 
         finally:
-            # Always clean up, even if something went wrong
             self.cleanup()
 
     def run_eye_blink(self):
         print("Blink-to-Morse detector initializing...")
         print(f"Calibrating for {CALIBRATION_FRAMES} frames. Please keep your eyes open.")
         
-        # Set up all our systems
         self.initialize_camera()
         self.audio_manager.start_audio_threads()
         
@@ -329,7 +318,7 @@ class MorseDecoderApp:
                 
                 # Mirror the image so it feels more natural
                 frame = cv2.flip(frame, 1)
-                display_frame = frame.copy()  # We'll draw on this copy
+                display_frame = frame.copy()
                 current_time = time.time()    # Get current time for timing
                 
                 # Process the frame to detect face and calculate eye openness
@@ -393,14 +382,12 @@ class MorseDecoderApp:
             print("\nInterrupted by user")
         
         finally:
-            # Always clean up, even if something went wrong
             self.cleanup()
     
     def cleanup(self):
         if self.cap:
             self.cap.release()  # Release camera
         
-        # Clean up all our managers
         self.audio_manager.cleanup()
         self.vision_processor.cleanup()
         self.ui_handler.cleanup()
@@ -463,15 +450,13 @@ def show_selection_ui():
     return choice
 
 
-# This is the entry point - when you run the script, this happens:
 if __name__ == "__main__":
 
     # Show the UI selection menu first
     user_choice = show_selection_ui()
 
     if user_choice != 'quit':
-        # Only create the app if the user didn't quit
-        app = MorseDecoderApp()  # Create the application
+        app = MorseDecoderApp()
 
         if user_choice == 'eye':
             print("Initializing Eye Blink Detection mode...")

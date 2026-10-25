@@ -1,6 +1,6 @@
 import time
 import threading
-import pyttsx3 # This needs to be available for pyttsx3.speak
+import pyttsx3
 from queue import Queue
 import sys
 
@@ -65,7 +65,6 @@ class AudioManager:
         return thread
 
     def _play_morse_blocking(self, morse_string: str):
-        # ... (Rest of the _play_morse_blocking implementation remains the same)
         if not morse_string:
             return
 
