@@ -45,7 +45,6 @@ class AudioManager:
         while not self.beep_stop_event.is_set():
             try:
                 text_to_play = self.beep_queue.get(timeout=0.1)
-                # Convert text to morse and play it
                 from morse_utils import text_to_morse
                 morse_string = text_to_morse(text_to_play)
                 self._play_morse_blocking(morse_string)
@@ -68,7 +67,6 @@ class AudioManager:
         if not morse_string:
             return
 
-        # Iterate through morse string and play appropriate sounds
         i = 0
         L = len(morse_string)
         while i < L:
@@ -88,7 +86,6 @@ class AudioManager:
                 time.sleep(INTER_ELEMENT_GAP_MS / 1000.0)
                 i += 1
             elif ch == ' ':
-                # Count consecutive spaces
                 j = i
                 while j < L and morse_string[j] == ' ':
                     j += 1
@@ -101,13 +98,11 @@ class AudioManager:
                     time.sleep(INTER_WORD_GAP_MS / 1000.0)
                 i = j
             else:
-                # Unknown character: skip
                 i += 1
 
     def speak_text_non_blocking(self, text: str):
         if not text:
             return
-        # Clear queue and add new text
         with self.speech_queue.mutex:
             self.speech_queue.queue.clear()
         self.speech_queue.put(text)

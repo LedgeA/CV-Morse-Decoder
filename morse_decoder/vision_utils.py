@@ -8,7 +8,6 @@ from config import *
 
 class VisionProcessor:
     def __init__(self):
-        # Initialize MediaPipe face mesh and tracking variables
         self.face_mesh = mp.solutions.face_mesh.FaceMesh(
             refine_landmarks=True,
             min_detection_confidence=0.6,
@@ -17,18 +16,15 @@ class VisionProcessor:
 
         self.light_model = YOLO('assets/best.pt')
 
-        # EAR smoothing histories
         self.left_ear_hist = deque(maxlen=EAR_SMOOTHING)
         self.right_ear_hist = deque(maxlen=EAR_SMOOTHING)
         self.avg_ear_hist = deque(maxlen=EAR_SMOOTHING)
         
-        # Calibration data
         self.open_ear_values = []
         self.calibration_done = False
         self.EAR_CLOSED_THRESHOLD = None
         self.EAR_OPEN_THRESHOLD = None
         
-        # Blink detection state
         self.blinking = False
         self.blink_start_time = None
         self.blink_frame_counter = 0
@@ -61,12 +57,10 @@ class VisionProcessor:
         if results.multi_face_landmarks:
             landmarks = results.multi_face_landmarks[0].landmark
             
-            # Calculate EAR for both eyes
             left_ear = self.eye_aspect_ratio(landmarks, LEFT_EYE)
             right_ear = self.eye_aspect_ratio(landmarks, RIGHT_EYE)
             avg_ear = (left_ear + right_ear) / 2.0
             
-            # Apply smoothing
             self.left_ear_hist.append(left_ear)
             self.right_ear_hist.append(right_ear)
             self.avg_ear_hist.append(avg_ear)
@@ -75,7 +69,6 @@ class VisionProcessor:
             right_ear_s = sum(self.right_ear_hist) / len(self.right_ear_hist)
             avg_ear_s = sum(self.avg_ear_hist) / len(self.avg_ear_hist)
             
-            # Calibration phase
             if not self.calibration_done:
                 self.open_ear_values.append(avg_ear_s)
         
@@ -86,7 +79,6 @@ class VisionProcessor:
         result = results[0]
         if len(result.boxes) > 0:
             box = result.boxes[0]
-            # confidence = float(box.conf[0])
 
             return box
         return None
@@ -109,7 +101,6 @@ class VisionProcessor:
                 points.append((x, y))
                 cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
             
-            # Draw eye contours
             for i in range(len(points)):
                 cv2.line(frame, points[i], points[(i + 1) % len(points)], (0, 255, 0), 1)
 
@@ -151,14 +142,12 @@ class VisionProcessor:
                         if self.blink_type in ['.', '-']:
                             new_symbol = self.blink_type
                         elif self.blink_type == ' ':
-                            # SPACE DETECTED - return special flag
                             new_symbol = 'SPACE'  # Special flag for space
 
                     blink_ended = True
                     self._reset_blink_state()
 
             elif self.blink_start_time and (current_time - self.blink_start_time > MAX_BLINK_DURATION):
-                # Blink too long, reset
                 self._reset_blink_state()
                 blink_ended = True
 
@@ -200,14 +189,12 @@ class VisionProcessor:
                         if self.blink_type in ['.', '-']:
                             new_symbol = self.blink_type
                         elif self.blink_type == ' ':
-                            # SPACE DETECTED - return special flag
                             new_symbol = 'SPACE'  # Special flag for space
 
                     blink_ended = True
                     self._reset_blink_state()
 
             elif self.blink_start_time and (current_time - self.blink_start_time > MAX_BLINK_DURATION):
-                # Blink too long, reset
                 self._reset_blink_state()
                 blink_ended = True
 

@@ -1,4 +1,5 @@
 # Ignore virtual environment
+.venv/
 venv310/
 venv/
 env/
@@ -47,9 +48,10 @@ logs/
 *.tmp
 *.temp
 
-# Ignore test files (optional - include if you have tests)
+# Ignore local tests and test artifacts
+/tests/
 test_results/
-pytest_cache/
+.pytest_cache/
 .tox/
 
 # Ignore documentation builds
@@ -64,20 +66,13 @@ media/
 uploads/
 
 # Ignore specific to this project
-calibration_data/  # If you save calibration data
-user_settings/     # If you save user-specific settings
-
-# Ignore large data files (if any)
-*.csv
-*.json
-*.xml
-*.dat
+calibration_data/
+user_settings/
 
 # Ignore package manager files
 Pipfile
 Pipfile.lock
 poetry.lock
-pyproject.toml  # Keep this if you use it, otherwise ignore
 
 # Ignore macOS specific
 .AppleDouble

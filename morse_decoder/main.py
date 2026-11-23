@@ -1,18 +1,17 @@
 import time
-import cv2
-import numpy as np
 from config import *
 from morse_utils import *
-from audio_utils import AudioManager
-from vision_utils import VisionProcessor
-from ui_utils import UIHandler
+from ui_utils import SessionChannel, SessionFrame, run_ui
 
 class MorseDecoderApp:
 
-    def __init__(self):
+    def __init__(self, ui_handler: SessionChannel):
+        from audio_utils import AudioManager
+        from vision_utils import VisionProcessor
+
         self.audio_manager = AudioManager()        # Handles sounds and speech
         self.vision_processor = VisionProcessor()  # Handles camera and eye detection
-        self.ui_handler = UIHandler("LuminEye")  # Handles display
+        self.ui_handler = ui_handler
 
         self.morse_sequence = ""
         self.decoded_text = ""
@@ -24,29 +23,26 @@ class MorseDecoderApp:
         self.current_symbol_data = INPUT_SEQUENCE[0]  # Current symbol (. or - or space)
         self.is_interval_phase = False
         
-        # Track calibration progress
         self.frame_count = 0
         self.calibration_done = False
         
-        # Prevent too many rapid key presses
         self.last_key_time = 0
         
-        # Camera object (will be initialized later)
         self.cap = None
     
     def initialize_camera(self):
         """Set up the camera with the right settings"""
+        import cv2
+
         self.cap = cv2.VideoCapture(camera_index)
         
-        # Configure camera resolution and speed
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
         self.cap.set(cv2.CAP_PROP_FPS, TARGET_FPS)
         
         if not self.cap.isOpened():
-            raise Exception("Error: Could not open video stream.")
+            raise RuntimeError("Could not open the camera. Check that it is connected and available.")
         
-        # Print actual camera speed for debugging
         actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
         print(f"Attempted to set FPS to {TARGET_FPS}. Actual FPS: {actual_fps}")
     
@@ -73,11 +69,9 @@ class MorseDecoderApp:
         elif key in [ord('b'), ord('B')]:
             self._handle_beep(current_time)    # Play Morse code sounds
         
-        # Keep running unless 'Q' was pressed
         return True
     
     def _handle_reset(self, current_time: float):
-        # Clear the current Morse sequence and reset state
         self.morse_sequence = ""
         self.invalid_sequence_detected = False
         self.ui_handler.show_notification("RESET: Current Morse sequence cleared.", current_time)
@@ -85,9 +79,7 @@ class MorseDecoderApp:
         self.last_key_time = current_time
     
     def _handle_submit(self, current_time: float):
-        # Convert current Morse sequence to a letter and add to decoded text
         if self.morse_sequence:
-            # Try to translate Morse code to a letter/number
             letter = morse_to_letter(self.morse_sequence)
             if letter:
                 self.decoded_text += letter
@@ -95,23 +87,19 @@ class MorseDecoderApp:
                 self.ui_handler.show_notification(message, current_time)
                 print(message)
             else:
-                # Morse sequence doesn't match any known code
                 message = f"ERROR: '{self.morse_sequence}' is not valid."
                 self.ui_handler.show_notification(message, current_time, is_error=True)
                 print(message)
             
-            # Reset for next input
             self.morse_sequence = ""
             self.invalid_sequence_detected = False
         else:
-            # User pressed Enter with no Morse sequence
             message = "ERROR: No Morse sequence to submit."
             self.ui_handler.show_notification(message, current_time, is_error=True)
         
         self.last_key_time = current_time
     
     def _handle_delete(self, current_time: float):
-        # Remove the last character from the decoded text
         if self.decoded_text:
             deleted_char = self.decoded_text[-1]
             self.decoded_text = self.decoded_text[:-1]  # Remove last character
@@ -125,7 +113,6 @@ class MorseDecoderApp:
         self.last_key_time = current_time
     
     def _handle_speak(self, current_time: float):
-        # Use text-to-speech to read the decoded text aloud
         if self.decoded_text:
             self.ui_handler.show_notification("Speaking decoded text...", current_time)
             self.audio_manager.speak_text_non_blocking(self.decoded_text)
@@ -136,7 +123,6 @@ class MorseDecoderApp:
         self.last_key_time = current_time
     
     def _handle_beep(self, current_time: float):
-        # Play the decoded text as Morse code beeps
         if self.decoded_text:
             message = f"Playing Morse beeps for: '{self.decoded_text}'"
             self.ui_handler.show_notification(message, current_time)
@@ -151,24 +137,18 @@ class MorseDecoderApp:
         if not self.calibration_done:
             return  # Don't start until calibration is complete
         
-        # Calculate how long current phase has been active
         elapsed_time = current_time - self.sequence_start_time
         
-        # Determine how long this phase should last
         duration = INTERVAL_DURATION if self.is_interval_phase else self.current_symbol_data["duration"]
         
-        # Check if it's time to switch to next phase
         if elapsed_time > duration:
             if self.is_interval_phase:
-                # Move to next symbol in sequence
                 self.sequence_index = (self.sequence_index + 1) % len(INPUT_SEQUENCE)
                 self.current_symbol_data = INPUT_SEQUENCE[self.sequence_index]
                 self.is_interval_phase = False  # Switch to symbol phase
             else:
-                # Switch to rest period between symbols
                 self.is_interval_phase = True
             
-            # Reset timer for new phase
             self.sequence_start_time = current_time
     
     def process_eye_blink_input(self, avg_ear_s: float, current_time: float):
@@ -181,22 +161,18 @@ class MorseDecoderApp:
 
             if new_symbol:
                 if new_symbol == 'SPACE':  # Handle space separately
-                    # Add space to decoded text
                     if self.decoded_text and self.decoded_text[-1] != " ":
                         self.decoded_text += " "
                         message = "SPACE added."
                         self.ui_handler.show_notification(message, current_time)
                         print(message)
                 else:
-                    # Regular Morse symbol (dot or dash)
                     temp_seq = self.morse_sequence + new_symbol
 
-                    # Check if this could be part of a valid Morse code
                     if is_valid_prefix(temp_seq):
                         self.morse_sequence = temp_seq
                         self.invalid_sequence_detected = False
                     else:
-                        # This sequence can't become any valid Morse code
                         self.invalid_sequence_detected = True
                         message = f"ERROR: '{temp_seq}' invalid prefix."
                         self.ui_handler.show_notification(message, current_time, is_error=True)
@@ -210,39 +186,60 @@ class MorseDecoderApp:
 
             if new_symbol:
                 if new_symbol == 'SPACE':  # Handle space separately
-                    # Add space to decoded text
                     if self.decoded_text and self.decoded_text[-1] != " ":
                         self.decoded_text += " "
                         message = "SPACE added."
                         self.ui_handler.show_notification(message, current_time)
                         print(message)
                 else:
-                    # Regular Morse symbol (dot or dash)
                     temp_seq = self.morse_sequence + new_symbol
 
-                    # Check if this could be part of a valid Morse code
                     if is_valid_prefix(temp_seq):
                         self.morse_sequence = temp_seq
                         self.invalid_sequence_detected = False
                     else:
-                        # This sequence can't become any valid Morse code
                         self.invalid_sequence_detected = True
                         message = f"ERROR: '{temp_seq}' invalid prefix."
                         self.ui_handler.show_notification(message, current_time, is_error=True)
 
+    def publish_frame(self, frame, current_time, status="", eye_readings=None):
+        symbol = None
+        duration = time_left = 0.0
+        if self.calibration_done:
+            if self.is_interval_phase:
+                duration = INTERVAL_DURATION
+            else:
+                symbol = self.current_symbol_data["symbol"]
+                duration = self.current_symbol_data["duration"]
+            elapsed_time = current_time - self.sequence_start_time
+            time_left = max(0.0, duration - elapsed_time)
+
+        self.ui_handler.present(SessionFrame(
+            frame=frame,
+            morse_sequence=self.morse_sequence,
+            decoded_text=self.decoded_text,
+            invalid_sequence=self.invalid_sequence_detected,
+            symbol=symbol,
+            time_left=time_left,
+            duration=duration,
+            status=status,
+            eye_readings=eye_readings,
+        ))
+
     def run_light_blink(self):
+        import cv2
+
         print("Blink-to-Morse detector initializing...")
 
         self.calibration_done = True
 
-        self.initialize_camera()
-        self.audio_manager.start_audio_threads()
-
         try:
+            if self.ui_handler.stop_requested.is_set():
+                return
+            self.initialize_camera()
+            self.audio_manager.start_audio_threads()
             running = True
-            # Main loop: keep running until user quits or camera fails
-            while running and self.cap.isOpened():
-                # Get the next frame from camera
+            while running and self.cap.isOpened() and not self.ui_handler.stop_requested.is_set():
                 success, frame = self.cap.read()
                 if not success:
                     break
@@ -252,47 +249,24 @@ class MorseDecoderApp:
                 display_frame = frame.copy()
                 current_time = time.time()  # Get current time for timing
 
-                # Process the frame to detect light and get confidence score
                 result_box = self.vision_processor.process_light_frame(display_frame)
 
                 confidence = 0.0
-                coords = 0.0
-
                 if result_box is not None:
                     confidence = float(result_box.conf[0])
-                    coords = result_box.xyxy[0].cpu().numpy().astype(int)
+                    x1, y1, x2, y2 = result_box.xyxy[0].cpu().numpy().astype(int)
 
-                # Check for keyboard input
-                key = cv2.waitKey(1) & 0xFF
+                key = self.ui_handler.next_key()
                 running = self.handle_key_input(key, current_time)
                 if not running:
                     break  # User pressed 'Q' to quit
 
-                # NORMAL OPERATION: User is entering Morse code
-                status_text = ""
                 self.update_sequential_input(current_time)  # Cycle through symbols
                 self.process_light_blink_input(confidence, current_time)  # Detect blinks
 
-                # DRAW VISUAL INTERFACE
                 if result_box is not None:
-                    self.ui_handler.draw_light_readings(display_frame, coords)
-
-                # Draw the sequential input interface (DOT/DASH/SPACE cycling)
-                elapsed_time = current_time - self.sequence_start_time
-                duration = INTERVAL_DURATION if self.is_interval_phase else self.current_symbol_data["duration"]
-                time_left = max(0.0, duration - elapsed_time)
-
-                self.ui_handler.draw_sequential_ui(
-                    display_frame, self.is_interval_phase,
-                    self.current_symbol_data["symbol"], time_left)
-
-                # Create the side panel with Morse sequence and decoded text
-                text_panel = self.ui_handler.create_text_panel(
-                    display_frame.shape[0], self.morse_sequence,
-                    self.decoded_text, self.invalid_sequence_detected)
-
-                # Combine camera view with text panel and show to user
-                self.ui_handler.display_combined_frame(display_frame, text_panel)
+                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                self.publish_frame(display_frame, current_time)
 
         except KeyboardInterrupt:
             print("\nInterrupted by user")
@@ -301,17 +275,18 @@ class MorseDecoderApp:
             self.cleanup()
 
     def run_eye_blink(self):
+        import cv2
+
         print("Blink-to-Morse detector initializing...")
         print(f"Calibrating for {CALIBRATION_FRAMES} frames. Please keep your eyes open.")
         
-        self.initialize_camera()
-        self.audio_manager.start_audio_threads()
-        
         try:
+            if self.ui_handler.stop_requested.is_set():
+                return
+            self.initialize_camera()
+            self.audio_manager.start_audio_threads()
             running = True
-            # Main loop: keep running until user quits or camera fails
-            while running and self.cap.isOpened():
-                # Get the next frame from camera
+            while running and self.cap.isOpened() and not self.ui_handler.stop_requested.is_set():
                 success, frame = self.cap.read()
                 if not success:
                     break
@@ -321,11 +296,9 @@ class MorseDecoderApp:
                 display_frame = frame.copy()
                 current_time = time.time()    # Get current time for timing
                 
-                # Process the frame to detect face and calculate eye openness
                 results, left_ear_s, right_ear_s, avg_ear_s = self.vision_processor.process_eye_frame(frame)
                 
-                # Check for keyboard input
-                key = cv2.waitKey(1) & 0xFF
+                key = self.ui_handler.next_key()
                 running = self.handle_key_input(key, current_time)
                 if not running:
                     break  # User pressed 'Q' to quit
@@ -333,50 +306,29 @@ class MorseDecoderApp:
                 # CALIBRATION PHASE: Learn user's normal eye openness
                 if not self.calibration_done:
                     self.frame_count += 1
-                    status_text = f"CALIBRATING: {self.frame_count}/{CALIBRATION_FRAMES}. Keep eyes open."
+                    status_text = f"Keep both eyes open. {self.frame_count} of {CALIBRATION_FRAMES} frames."
                     
-                    # Check if calibration is complete
                     if self.frame_count >= CALIBRATION_FRAMES:
                         self.vision_processor.complete_calibration()
+                        threshold = self.vision_processor.EAR_CLOSED_THRESHOLD
+                        if threshold is None:
+                            raise RuntimeError("No face was visible during calibration. Restart with your face in view.")
                         self.calibration_done = True
                         self.sequence_start_time = current_time
-                        status_text = f"CALIBRATION COMPLETE. Thresh: {self.vision_processor.EAR_CLOSED_THRESHOLD:.2f}"
+                        status_text = f"Calibration complete. Threshold {threshold:.2f}."
                         print(status_text)
                         print("Sequential Mode: DOT(3s)->1s GAP->DASH(3s)->1s GAP->SPACE(3s)->1s GAP. All with Both Eyes Blink.")
                 
                 else:
-                    # NORMAL OPERATION: User is entering Morse code
                     status_text = ""
                     self.update_sequential_input(current_time)  # Cycle through symbols
                     self.process_eye_blink_input(avg_ear_s, current_time)  # Detect blinks
                 
-                # DRAW VISUAL INTERFACE
-                
-                # Draw eye landmarks if face is detected
                 if results.multi_face_landmarks:
                     landmarks = results.multi_face_landmarks[0].landmark
                     self.vision_processor.draw_eye_landmarks(display_frame, landmarks)
                 
-                # Show eye openness readings and status
-                self.ui_handler.draw_ear_readings(display_frame, left_ear_s, right_ear_s, status_text)
-                
-                # Draw the sequential input interface (DOT/DASH/SPACE cycling)
-                if self.calibration_done:
-                    elapsed_time = current_time - self.sequence_start_time
-                    duration = INTERVAL_DURATION if self.is_interval_phase else self.current_symbol_data["duration"]
-                    time_left = max(0.0, duration - elapsed_time)
-                    
-                    self.ui_handler.draw_sequential_ui(
-                        display_frame, self.is_interval_phase, 
-                        self.current_symbol_data["symbol"], time_left)
-                
-                # Create the side panel with Morse sequence and decoded text
-                text_panel = self.ui_handler.create_text_panel(
-                    display_frame.shape[0], self.morse_sequence, 
-                    self.decoded_text, self.invalid_sequence_detected)
-                
-                # Combine camera view with text panel and show to user
-                self.ui_handler.display_combined_frame(display_frame, text_panel)
+                self.publish_frame(display_frame, current_time, status_text, (left_ear_s, right_ear_s))
                 
         except KeyboardInterrupt:
             print("\nInterrupted by user")
@@ -390,79 +342,17 @@ class MorseDecoderApp:
         
         self.audio_manager.cleanup()
         self.vision_processor.cleanup()
-        self.ui_handler.cleanup()
         
         print("Program terminated cleanly.")
 
 
-def show_selection_ui():
-    # Create a blank black image
-    width, height = 640, 480
-    menu_image = np.zeros((height, width, 3), dtype=np.uint8)
-
-    # --- Draw the menu options ---
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    # Title
-    title = "Select Input Mode"
-    (text_width, _), baseline = cv2.getTextSize(title, font, 1.2, 2)
-    cv2.putText(menu_image, title, ((width - text_width) // 2, 80),
-                font, 1.2, (255, 255, 255), 2, cv2.LINE_AA)
-
-    # Option 1
-    cv2.putText(menu_image, "Press '1': Eye Blink Detection", (100, 200),
-                font, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
-    # Option 2
-    cv2.putText(menu_image, "Press '2': Light Blink Detection", (100, 280),
-                font, 1, (0, 255, 255), 2, cv2.LINE_AA)
-
-    # Option 3
-    cv2.putText(menu_image, "Press 'Q': Quit", (100, 360),
-                font, 1, (0, 0, 255), 2, cv2.LINE_AA)
-
-    # Select Mode
-    window_name = "LuminEye"
-    cv2.imshow(window_name, menu_image)
-
-    choice = None
-    while choice is None:
-        key = cv2.waitKey(1) & 0xFF
-
-        if key == ord('1'):
-            choice = 'eye'
-        elif key == ord('2'):
-            choice = 'light'
-        elif key == ord('q') or key == ord('Q'):
-            choice = 'quit'
-
-        # Allow closing the window to also quit
-        try:
-            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
-                choice = 'quit'
-        except cv2.error:
-            # Window was closed manually
-            choice = 'quit'
-
-    cv2.destroyWindow(window_name)
-    # Add a small delay to ensure window closes before new one opens
-    cv2.waitKey(1)
-    return choice
+def run_session(mode, ui_handler):
+    app = MorseDecoderApp(ui_handler)
+    if mode == "eye":
+        app.run_eye_blink()
+    else:
+        app.run_light_blink()
 
 
 if __name__ == "__main__":
-
-    # Show the UI selection menu first
-    user_choice = show_selection_ui()
-
-    if user_choice != 'quit':
-        app = MorseDecoderApp()
-
-        if user_choice == 'eye':
-            print("Initializing Eye Blink Detection mode...")
-            app.run_eye_blink()
-        elif user_choice == 'light':
-            print("Initializing Light Blink Detection mode...")
-            app.run_light_blink()
-    else:
-        print("Exiting application.")
+    raise SystemExit(run_ui(run_session))

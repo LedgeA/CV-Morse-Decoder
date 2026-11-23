@@ -1,6 +1,5 @@
 from config import MORSE_DICT
 
-# Precompute valid sequences and reverse mapping
 VALID_MORSE_SEQUENCES = set(MORSE_DICT.keys())
 LETTER_TO_MORSE = {v: k for k, v in MORSE_DICT.items()}
 LETTER_TO_MORSE[' '] = ' '  # keep space

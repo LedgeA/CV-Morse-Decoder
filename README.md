@@ -4,9 +4,7 @@ A Python desktop application that converts eye blinks or blinking light into Mor
 
 ## Screenshot
 
-![LuminEye input-mode selection screen](docs/screenshots/input-mode.png)
-
-The application's mode-selection frame is shown above. Live eye and light detection views are omitted because they require camera input; no replacement camera images are used.
+![LuminEye in Eye Blink mode with eye landmarks, a Morse dash, and the decoded word WATER](docs/screenshots/eye-blink.png)
 
 ## Features
 
@@ -20,7 +18,7 @@ The application's mode-selection frame is shown above. Live eye and light detect
 ## Requirements
 
 - Python 3.12 and the `uv` package manager for the installation commands below.
-- A graphical desktop and an OpenCV build with GUI support; headless OpenCV cannot display this app.
+- A graphical desktop. PySide6 Essentials provides the desktop interface, and OpenCV handles camera capture and image processing.
 - A working camera for either detection mode. The selection screen does not require one.
 - A system speech engine for `pyttsx3`, such as eSpeak/eSpeak NG on Linux. Morse beeps use Windows-only `winsound` and are disabled on other platforms.
 - The included model at `morse_decoder/assets/best.pt`.
@@ -58,7 +56,7 @@ $env:PYTHONPATH = ".."
 ..\.venv\Scripts\python.exe main.py
 ```
 
-1. Press **1** for eye-blink detection or **2** for light-blink detection.
+1. Choose **Eye blink** or **Light blink**, or press **1** or **2**.
 2. For eye input, keep your eyes open during the initial 150-frame calibration.
 3. Watch the active symbol and blink during its selection window to enter dots and dashes.
 4. Press **Enter** to decode the current Morse sequence into a character.
